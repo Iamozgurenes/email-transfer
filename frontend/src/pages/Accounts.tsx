@@ -42,7 +42,7 @@ export default function Accounts() {
   const [activeTab, setActiveTab] = useState<AccountTab>('all')
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<number>>(new Set())
-  const [testingId, setTestingId] = useState<number | null>(null)
+  const [testingIds, setTestingIds] = useState<Set<number>>(new Set())
   const [rowTestResult, setRowTestResult] = useState<AccountTestResponse | null>(null)
   const [selectedYears, setSelectedYears] = useState<Set<number>>(new Set())
   const [folderPickerAccount, setFolderPickerAccount] = useState<Account | null>(null)
@@ -132,11 +132,28 @@ export default function Accounts() {
     })
   }
 
+  const applyTestResult = (id: number, result: AccountTestResponse) => {
+    setAccounts((prev) =>
+      prev.map((a) =>
+        a.id === id
+          ? {
+              ...a,
+              last_test_success: result.overall_success,
+              last_test_at: new Date().toISOString(),
+              last_test_yandex_message: result.yandex.message,
+              last_test_cpanel_message: result.cpanel.message,
+            }
+          : a,
+      ),
+    )
+  }
+
   const handleTestRow = async (id: number) => {
-    setTestingId(id)
+    setTestingIds((prev) => new Set(prev).add(id))
     setRowTestResult(null)
     try {
       const result = await api.testSavedAccount(id)
+      applyTestResult(id, result)
       setRowTestResult(result)
       if (result.overall_success) {
         toast.success(`Account #${id}: both connections succeeded`)
@@ -146,7 +163,54 @@ export default function Accounts() {
     } catch (e) {
       toast.error(String(e))
     } finally {
-      setTestingId(null)
+      setTestingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
+  const handleBulkTest = async () => {
+    const candidateIds = selected.size > 0 ? Array.from(selected) : filteredAccounts.map((a) => a.id)
+    const accountsById = new Map(accounts.map((a) => [a.id, a]))
+    // Already-confirmed (last test passed) accounts are skipped — no need to re-test them.
+    const ids = candidateIds.filter((id) => accountsById.get(id)?.last_test_success !== true)
+    const alreadyConfirmed = candidateIds.length - ids.length
+    if (ids.length === 0) {
+      toast.success('Selected account(s) already passed a previous test — nothing to test.')
+      return
+    }
+    setTestingIds((prev) => new Set([...prev, ...ids]))
+    let passed = 0
+    let failed = 0
+    const queue = [...ids]
+    const worker = async () => {
+      while (queue.length > 0) {
+        const id = queue.shift()
+        if (id === undefined) break
+        try {
+          const result = await api.testSavedAccount(id)
+          applyTestResult(id, result)
+          if (result.overall_success) passed++
+          else failed++
+        } catch {
+          failed++
+        } finally {
+          setTestingIds((prev) => {
+            const next = new Set(prev)
+            next.delete(id)
+            return next
+          })
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(3, ids.length) }, worker))
+    const skipHint = alreadyConfirmed > 0 ? `, ${alreadyConfirmed} already confirmed & skipped` : ''
+    if (failed > 0) {
+      toast.error(`Test finished: ${passed} passed, ${failed} failed${skipHint}`)
+    } else {
+      toast.success(`Test finished: all ${passed} passed${skipHint}`)
     }
   }
 
@@ -206,6 +270,17 @@ export default function Accounts() {
                 Delete selected ({selected.size})
               </Button>
             )}
+            <Button
+              variant="secondary"
+              onClick={handleBulkTest}
+              disabled={accounts.length === 0 || testingIds.size > 0}
+            >
+              {testingIds.size > 0
+                ? 'Testing...'
+                : selected.size > 0
+                  ? `Test selected (${selected.size})`
+                  : 'Test all'}
+            </Button>
             <Button onClick={handleStartAll} disabled={accounts.length === 0}>
               {selected.size > 0 ? `Migrate selected (${selected.size})` : 'Migrate all'}
             </Button>
@@ -317,6 +392,7 @@ export default function Accounts() {
                     <TableHeadCell>Yandex email</TableHeadCell>
                     <TableHeadCell>cPanel email</TableHeadCell>
                     <TableHeadCell>cPanel IMAP host</TableHeadCell>
+                    <TableHeadCell>Test</TableHeadCell>
                     <TableHeadCell>Migration</TableHeadCell>
                     <TableHeadCell>Added</TableHeadCell>
                     <TableHeadCell />
@@ -324,7 +400,12 @@ export default function Accounts() {
                 </TableHead>
                 <TableBody>
                   {filteredAccounts.map((a) => (
-                    <TableRow key={a.id}>
+                    <TableRow
+                      key={a.id}
+                      className={cn(
+                        a.last_test_success === false && 'bg-red-50 dark:bg-red-500/10',
+                      )}
+                    >
                       <TableCell>
                         <input
                           type="checkbox"
@@ -336,6 +417,25 @@ export default function Accounts() {
                       <TableCell>{a.yandex_email}</TableCell>
                       <TableCell>{a.cpanel_email}</TableCell>
                       <TableCell>{a.cpanel_imap_host}</TableCell>
+                      <TableCell>
+                        {a.last_test_success !== null ? (
+                          <span
+                            title={[
+                              `Yandex: ${a.last_test_yandex_message ?? '—'}`,
+                              `cPanel: ${a.last_test_cpanel_message ?? '—'}`,
+                              a.last_test_at ? `Tested: ${formatTrDateTime(a.last_test_at)}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join('\n')}
+                          >
+                            <Badge variant={a.last_test_success ? 'completed' : 'failed'}>
+                              {a.last_test_success ? 'Passed' : 'Failed'}
+                            </Badge>
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {a.latest_job_status ? (
                           <div className="flex flex-col items-start gap-1">
@@ -377,9 +477,9 @@ export default function Accounts() {
                             size="sm"
                             variant="secondary"
                             onClick={() => handleTestRow(a.id)}
-                            disabled={testingId === a.id}
+                            disabled={testingIds.has(a.id)}
                           >
-                            {testingId === a.id ? '...' : 'Test'}
+                            {testingIds.has(a.id) ? '...' : 'Test'}
                           </Button>
                           <Button
                             size="sm"

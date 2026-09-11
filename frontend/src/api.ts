@@ -32,6 +32,10 @@ export interface Account {
   latest_job_status: string | null
   messages_transferred: number
   latest_job_error: string | null
+  last_test_success: boolean | null
+  last_test_at: string | null
+  last_test_yandex_message: string | null
+  last_test_cpanel_message: string | null
 }
 
 export interface AccountCreate {

@@ -64,12 +64,20 @@ class AccountResponse(BaseModel):
     latest_job_status: str | None = None
     messages_transferred: int = 0
     latest_job_error: str | None = None
+    last_test_success: bool | None = None
+    last_test_at: datetime | None = None
+    last_test_yandex_message: str | None = None
+    last_test_cpanel_message: str | None = None
 
     model_config = {"from_attributes": True}
 
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> str:
         return serialize_utc_datetime(value) or ""
+
+    @field_serializer("last_test_at")
+    def serialize_last_test_at(self, value: datetime | None) -> str | None:
+        return serialize_utc_datetime(value)
 
 
 class BulkImportRequest(BaseModel):

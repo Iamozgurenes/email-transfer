@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -93,6 +95,10 @@ def _to_response(
         latest_job_status=latest_job_status,
         messages_transferred=messages_transferred,
         latest_job_error=latest_job_error,
+        last_test_success=account.last_test_success,
+        last_test_at=account.last_test_at,
+        last_test_yandex_message=account.last_test_yandex_message,
+        last_test_cpanel_message=account.last_test_cpanel_message,
     )
 
 
@@ -166,13 +172,21 @@ def test_saved_account(account_id: int, db: Session = Depends(get_db)):
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    return _run_account_test(
+    result = _run_account_test(
         yandex_email=account.yandex_email,
         yandex_password=decrypt_password(account.yandex_password_enc),
         cpanel_email=account.cpanel_email,
         cpanel_password=decrypt_password(account.cpanel_password_enc),
         cpanel_imap_host=account.cpanel_imap_host,
     )
+
+    account.last_test_success = result.overall_success
+    account.last_test_at = datetime.now(timezone.utc)
+    account.last_test_yandex_message = result.yandex.message
+    account.last_test_cpanel_message = result.cpanel.message
+    db.commit()
+
+    return result
 
 
 @router.get("/{account_id}/folders", response_model=AccountFoldersResponse)
