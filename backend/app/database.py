@@ -32,7 +32,9 @@ class AppSettings(Base):
     cpanel_imap_ssl = Column(Boolean, nullable=False, default=True)
     worker_concurrency = Column(Integer, nullable=False, default=2)
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
 
