@@ -157,8 +157,7 @@ export const api = {
     request<AccountTestResponse>('/accounts/test', { method: 'POST', body: JSON.stringify(data) }),
   testSavedAccount: (id: number) =>
     request<AccountTestResponse>(`/accounts/${id}/test`, { method: 'POST' }),
-  getAccountFolders: (id: number) =>
-    request<AccountFoldersResponse>(`/accounts/${id}/folders`),
+  getAccountFolders: (id: number) => request<AccountFoldersResponse>(`/accounts/${id}/folders`),
 
   getJobs: () => request<Job[]>('/jobs'),
   startMigration: (accountIds?: number[], years?: number[], folders?: string[]) =>

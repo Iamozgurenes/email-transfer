@@ -12,13 +12,13 @@ from app.schemas import (
     StartMigrationRequest,
     StartMigrationResponse,
 )
+from app.services.folder_filter import folders_to_storage, normalize_folders
 from app.services.imapsync import parse_messages_transferred
 from app.services.job_cancel import CANCELLED_BY_USER, mark_job_cancelled
 from app.services.job_log import append_cancelled_to_job_log, delete_job_log
 from app.services.job_sync import read_job_log_content, sync_active_jobs, sync_job_status
 from app.services.log_parser import parse_folder_progress
 from app.services.queue_service import cancel_migration, enqueue_migration
-from app.services.folder_filter import folders_to_storage, normalize_folders
 from app.services.year_filter import normalize_years, years_to_storage
 
 router = APIRouter(

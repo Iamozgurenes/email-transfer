@@ -1,7 +1,17 @@
-from datetime import datetime, timezone
 import uuid as uuid_lib
+from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, create_engine, text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
 from app.config import settings
@@ -21,7 +31,9 @@ class AppSettings(Base):
     cpanel_imap_port = Column(Integer, nullable=False, default=993)
     cpanel_imap_ssl = Column(Boolean, nullable=False, default=True)
     worker_concurrency = Column(Integer, nullable=False, default=2)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+    )
 
 
 class Account(Base):
@@ -74,8 +86,7 @@ def _ensure_columns() -> None:
     """SQLite mevcut tablolara yeni kolon ekle."""
     with engine.begin() as conn:
         cols = {
-            row[1]
-            for row in conn.execute(text("PRAGMA table_info(migration_jobs)")).fetchall()
+            row[1] for row in conn.execute(text("PRAGMA table_info(migration_jobs)")).fetchall()
         }
         if "migrate_years" not in cols:
             conn.execute(text("ALTER TABLE migration_jobs ADD COLUMN migrate_years VARCHAR(64)"))

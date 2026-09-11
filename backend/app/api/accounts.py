@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.crypto import decrypt_password, encrypt_password
 from app.database import Account, MigrationJob, get_db
+from app.deps import get_current_user
 from app.schemas import (
     AccountCreate,
     AccountFolderItem,
@@ -14,7 +15,6 @@ from app.schemas import (
     BulkImportResponse,
     ImapTestResultResponse,
 )
-from app.deps import get_current_user
 from app.services.imap_folders import _is_automap_folder, list_imap_folders
 from app.services.imap_test import test_imap_connection
 from app.services.job_sync import sync_active_jobs
@@ -37,7 +37,9 @@ def _derive_imap_host(cpanel_email: str, cpanel_imap_host: str) -> str:
     return ""
 
 
-def _latest_job_info(db: Session, account_id: int) -> tuple[str | None, str | None, int, str | None]:
+def _latest_job_info(
+    db: Session, account_id: int
+) -> tuple[str | None, str | None, int, str | None]:
     active = (
         db.query(MigrationJob)
         .filter(
