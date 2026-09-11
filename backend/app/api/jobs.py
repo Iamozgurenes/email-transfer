@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from app.database import Account, MigrationJob, get_db
 from app.deps import get_current_user
 from app.schemas import (
+    BulkDeleteJobsRequest,
+    BulkDeleteResponse,
     FolderProgressItem,
     JobLogResponse,
     JobResponse,
@@ -209,3 +211,21 @@ def delete_job(job_uuid: str, db: Session = Depends(get_db)):
     delete_job_log(job.uuid)
     db.delete(job)
     db.commit()
+
+
+@router.post("/bulk-delete", response_model=BulkDeleteResponse)
+def bulk_delete_jobs(payload: BulkDeleteJobsRequest, db: Session = Depends(get_db)):
+    jobs = db.query(MigrationJob).filter(MigrationJob.uuid.in_(payload.uuids)).all()
+    deleted = 0
+    skipped = 0
+    for job in jobs:
+        if job.status == "running":
+            skipped += 1
+            continue
+        if job.status == "pending":
+            cancel_migration(job.rq_job_id)
+        delete_job_log(job.uuid)
+        db.delete(job)
+        deleted += 1
+    db.commit()
+    return BulkDeleteResponse(deleted=deleted, skipped=skipped)

@@ -153,3 +153,16 @@ class StartMigrationRequest(BaseModel):
 class StartMigrationResponse(BaseModel):
     jobs_created: int
     job_uuids: list[str]
+
+
+class BulkDeleteAccountsRequest(BaseModel):
+    ids: list[int]
+
+
+class BulkDeleteJobsRequest(BaseModel):
+    uuids: list[str]
+
+
+class BulkDeleteResponse(BaseModel):
+    deleted: int
+    skipped: int = 0

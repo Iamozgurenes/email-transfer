@@ -114,6 +114,24 @@ export default function Accounts() {
     })
   }
 
+  const handleBulkDelete = () => {
+    const ids = Array.from(selected)
+    if (ids.length === 0) return
+    setConfirmState({
+      title: `Delete ${ids.length} account(s)?`,
+      description: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'destructive',
+      onConfirm: async () => {
+        const result = await api.bulkDeleteAccounts(ids)
+        toast.success(`${result.deleted} account(s) deleted`)
+        setSelected(new Set())
+        if (rowTestResult) setRowTestResult(null)
+        load()
+      },
+    })
+  }
+
   const handleTestRow = async (id: number) => {
     setTestingId(id)
     setRowTestResult(null)
@@ -181,9 +199,17 @@ export default function Accounts() {
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <h2 className="text-xl font-semibold">Accounts</h2>
-          <Button onClick={handleStartAll} disabled={accounts.length === 0}>
-            {selected.size > 0 ? `Migrate selected (${selected.size})` : 'Migrate all'}
-          </Button>
+          <div className="flex gap-2">
+            {selected.size > 0 && (
+              <Button variant="destructive" onClick={handleBulkDelete}>
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete selected ({selected.size})
+              </Button>
+            )}
+            <Button onClick={handleStartAll} disabled={accounts.length === 0}>
+              {selected.size > 0 ? `Migrate selected (${selected.size})` : 'Migrate all'}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="border-t border-border pt-4">
           <span className="mb-2 block text-sm font-semibold">Years to migrate</span>

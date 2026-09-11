@@ -11,6 +11,8 @@ from app.schemas import (
     AccountResponse,
     AccountTestResponse,
     AccountUpdate,
+    BulkDeleteAccountsRequest,
+    BulkDeleteResponse,
     BulkImportRequest,
     BulkImportResponse,
     ImapTestResultResponse,
@@ -321,3 +323,12 @@ def delete_account(account_id: int, db: Session = Depends(get_db)):
 def delete_all_accounts(db: Session = Depends(get_db)):
     db.query(Account).delete()
     db.commit()
+
+
+@router.post("/bulk-delete", response_model=BulkDeleteResponse)
+def bulk_delete_accounts(payload: BulkDeleteAccountsRequest, db: Session = Depends(get_db)):
+    accounts = db.query(Account).filter(Account.id.in_(payload.ids)).all()
+    for account in accounts:
+        db.delete(account)
+    db.commit()
+    return BulkDeleteResponse(deleted=len(accounts))

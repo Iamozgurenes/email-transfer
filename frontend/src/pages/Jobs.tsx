@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Trash2 } from 'lucide-react'
 import { api, Job } from '../api'
 import JobLogModal from '../components/JobLogModal'
 import JobProgress from '../components/JobProgress'
@@ -25,6 +25,7 @@ export default function Jobs() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
   const [confirmState, setConfirmState] = useState<ConfirmDialogState | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const load = useCallback(async () => {
     try {
@@ -95,14 +96,70 @@ export default function Jobs() {
     })
   }
 
+  const toggleSelect = (uuid: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(uuid)) next.delete(uuid)
+      else next.add(uuid)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    const visibleUuids = jobs.map((j) => j.uuid)
+    const allVisibleSelected =
+      visibleUuids.length > 0 && visibleUuids.every((uuid) => selected.has(uuid))
+    if (allVisibleSelected) {
+      setSelected((prev) => {
+        const next = new Set(prev)
+        visibleUuids.forEach((uuid) => next.delete(uuid))
+        return next
+      })
+    } else {
+      setSelected((prev) => new Set([...prev, ...visibleUuids]))
+    }
+  }
+
+  const handleBulkDelete = () => {
+    const uuids = Array.from(selected)
+    if (uuids.length === 0) return
+    setConfirmState({
+      title: `Delete ${uuids.length} job(s)?`,
+      description: 'Running jobs will be skipped. This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          const result = await api.bulkDeleteJobs(uuids)
+          toast.success(
+            `${result.deleted} job(s) deleted${result.skipped ? `, ${result.skipped} running job(s) skipped` : ''}`,
+          )
+          setSelected(new Set())
+          if (selectedJob && uuids.includes(selectedJob.uuid)) setSelectedJob(null)
+          load()
+        } catch (e) {
+          toast.error(String(e))
+        }
+      },
+    })
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">Jobs</h2>
-        <Button variant="secondary" onClick={load}>
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          {selected.size > 0 && (
+            <Button variant="destructive" onClick={handleBulkDelete}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete selected ({selected.size})
+            </Button>
+          )}
+          <Button variant="secondary" onClick={load}>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {loading && jobs.length === 0 ? (
@@ -116,6 +173,14 @@ export default function Jobs() {
           <Table>
             <TableHead>
               <TableRow>
+                <TableHeadCell className="w-8">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={jobs.length > 0 && jobs.every((j) => selected.has(j.uuid))}
+                    onChange={toggleAll}
+                  />
+                </TableHeadCell>
                 <TableHeadCell>ID</TableHeadCell>
                 <TableHeadCell>Yandex → cPanel</TableHeadCell>
                 <TableHeadCell>Status</TableHeadCell>
@@ -129,6 +194,14 @@ export default function Jobs() {
             <TableBody>
               {jobs.map((job) => (
                 <TableRow key={job.uuid}>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={selected.has(job.uuid)}
+                      onChange={() => toggleSelect(job.uuid)}
+                    />
+                  </TableCell>
                   <TableCell title={job.uuid}>{shortUuid(job.uuid)}</TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-0.5 text-xs">
