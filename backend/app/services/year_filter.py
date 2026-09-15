@@ -31,8 +31,12 @@ def build_search1_args(years: list[int] | None) -> list[str]:
 
     start_year = normalized[0]
     end_year = normalized[-1]
-    # Seçilen yılların birleşimi: en eski yılın başı → en yeni yılın sonu
-    search = f"SENTSINCE 1-{MONTHS[0]}-{start_year} SENTBEFORE 1-{MONTHS[0]}-{end_year + 1}"
+    # Seçilen yılların birleşimi: en eski yılın başı → en yeni yılın sonu.
+    # SENTSINCE/SENTBEFORE (mesajın Date: header'ına bakar) Yandex'te güvenilir
+    # şekilde uygulanmıyor (bkz. https://github.com/imapsync/imapsync/issues/231);
+    # SINCE/BEFORE (sunucudaki INTERNALDATE'e bakar) IMAP'in temel ve daha
+    # güvenilir desteklenen arama anahtar kelimeleridir.
+    search = f"SINCE 1-{MONTHS[0]}-{start_year} BEFORE 1-{MONTHS[0]}-{end_year + 1}"
     return ["--search1", search]
 
 
